@@ -104,14 +104,16 @@ class MultiHeadAttention(nn.Module):
         return out
 
 class FeedFoward(nn.Module): #Feed Forward Network as present in Attention is all you need paper.
+    #It is done per token
     """ a simple linear layer followed by a non-linearity """
 
     def __init__(self, n_embd):
         super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(n_embd, 4 * n_embd),
+        #Typically, self.net will hold the main body of the model, especially when using nn.Sequential to chain multiple layers together.
+        self.net = nn.Sequential( #self.net is used to store NN or sequence of layers
+            nn.Linear(n_embd, 4 * n_embd), #see paper as we need higher projection dimension
             nn.ReLU(),
-            nn.Linear(4 * n_embd, n_embd),
+            nn.Linear(4 * n_embd, n_embd),#here, we scale down the projection again to the lower dimension
             nn.Dropout(dropout),
         )
 
@@ -120,6 +122,7 @@ class FeedFoward(nn.Module): #Feed Forward Network as present in Attention is al
 
 class Block(nn.Module):
     """ Transformer block: communication followed by computation """
+    #We don't consider cross attention here where we send input to decoder from the encoder 
 
     def __init__(self, n_embd, n_head):
         # n_embd: embedding dimension, n_head: the number of heads we'd like
@@ -127,12 +130,15 @@ class Block(nn.Module):
         head_size = n_embd // n_head
         self.sa = MultiHeadAttention(n_head, head_size)
         self.ffwd = FeedFoward(n_embd)
+        #ln1 and ln2 represents layer norm 1 and layer norm 2, happens per token and is applied before so, it is called pre norm
+        #mean = 0, variance = 1
         self.ln1 = nn.LayerNorm(n_embd)
         self.ln2 = nn.LayerNorm(n_embd)
 
     def forward(self, x):
-        x = x + self.sa(self.ln1(x))
-        x = x + self.ffwd(self.ln2(x))
+        #we apply self.ln1 on x before it goes to self attention and feed forward network
+        x = x + self.sa(self.ln1(x)) #x + something, here it means we are doing residual connection, i.e. we are adding them
+        x = x + self.ffwd(self.ln2(x))# here also the same where we are adding the residual connection.
         return x
 
 # super simple bigram model
